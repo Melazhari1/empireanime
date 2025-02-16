@@ -31,3 +31,4 @@ wp-content/cache-config.php
 # Ignore specific files
 wp-config.php
 wflogs/
+wp-content/w3tc-config/
