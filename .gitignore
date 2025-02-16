@@ -17,7 +17,7 @@ Thumbs.db
 node_modules/
 npm-debug.log
 yarn-error.log
-
+wflogs/
 
 # Ignore uploads
 wp-content/uploads/
@@ -30,3 +30,4 @@ wp-content/cache-config.php
 
 # Ignore specific files
 wp-config.php
+wflogs/

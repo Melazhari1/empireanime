@@ -1,5 +1,6 @@
 <?php
-function dd($variable) {
+function dd($variable)
+{
     echo '<style>
         .dump-container { background: #282c34; color: #abb2bf; padding: 10px; border-radius: 5px; font-family: monospace; font-size: 14px; white-space: pre-wrap; word-wrap: break-word; }
         .dump-key { color: #61afef; }
@@ -16,8 +17,12 @@ function dd($variable) {
     echo '</div>';
 }
 
-function dump_variable($var, $depth = 0) {
-    if ($depth > 10) { echo "<span class='dump-null'>...</span>"; return; }
+function dump_variable($var, $depth = 0)
+{
+    if ($depth > 10) {
+        echo "<span class='dump-null'>...</span>";
+        return;
+    }
 
     if (is_array($var)) {
         echo "<span class='dump-type'>Array</span> (\n";
@@ -49,11 +54,13 @@ function dump_variable($var, $depth = 0) {
     }
 }
 
-class AnimeNewsScraper {
+class AnimeNewsScraper
+{
     // URL to scrape news from
     private $url;
 
-    public function __construct($url = 'https://www.animenewsnetwork.com/news/') {
+    public function __construct($url = 'https://www.animenewsnetwork.com/news/')
+    {
         $this->url = $url;
     }
 
@@ -62,7 +69,8 @@ class AnimeNewsScraper {
      *
      * @return string|false The HTML content or false on failure.
      */
-    private function fetchContent($url) {
+    private function fetchContent($url)
+    {
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
         // Return the content instead of printing it out
@@ -85,7 +93,8 @@ class AnimeNewsScraper {
      *
      * @return array An array of news items, each as an associative array with title, link, and time.
      */
-    public function scrapeNews() {
+    public function scrapeNews()
+    {
         $html = $this->fetchContent($this->url);
         if ($html === false) {
             return [];
@@ -106,7 +115,7 @@ class AnimeNewsScraper {
         // Adjust this XPath query based on the current site structure.
         $articles = $xpath->query("//div[contains(@data-topics, 'anime') and contains(@data-topics, 'news')]");
         // Find articles with data-topics attribute containing 'anime' and 'news'
-        
+
 
         // If no <article> tags are found, you may need to adjust the query.
         if ($articles->length === 0) {
@@ -114,7 +123,7 @@ class AnimeNewsScraper {
             $articles = $xpath->query("//div[contains(@class, 'news')]//div[contains(@class, 'item')]");
         }
 
- 
+
 
         // Loop through each article/news item found
         foreach ($articles as $article) {
@@ -132,46 +141,89 @@ class AnimeNewsScraper {
 
             // Fetch the full article content
             $fullContent = '';
-            $thumbnail = '';
-            if ($link) {
-            $link = 'https://www.animenewsnetwork.com' . $link;
-            $fullContentHtml = $this->fetchContent($link);
-            
-            if ($fullContentHtml !== false) {
-                $fullDoc = new DOMDocument();
-                libxml_use_internal_errors(true);
-                $fullDoc->loadHTML($fullContentHtml);
-                libxml_clear_errors();
-
-                $fullXpath = new DOMXPath($fullDoc);
-
-                // Get the full text content (assuming it's in a <div> with class 'full-text')
-                $fullTextNode = $fullXpath->query("//div[contains(@class, 'meat')]")->item(0);
-                $fullContent = $fullTextNode ? trim($fullTextNode->textContent) : '';
-                dd($fullTextNode);die;
-                // Get the first image for the thumbnail (assuming it's in an <img> tag)
-                $imageNode = $fullXpath->query("//img")->item(0);
-                $thumbnail = $imageNode ? $imageNode->getAttribute('src') : '';
-                $thumbnail = 'https://www.animenewsnetwork.com' . $thumbnail;
-            }
-            }
-
+            $thumbnailNode = $xpath->query(".//div[contains(@class, 'thumbnail')]", $article)->item(0);
+            $thumbnail = $thumbnailNode ? $thumbnailNode->getAttribute('data-src') : '';
+            $thumbnail = 'https://www.animenewsnetwork.com' . $thumbnail;
+            $hookNode = $xpath->query(".//span[contains(@class, 'hook')]", $article)->item(0);
+            $postexcerpt = $hookNode ? trim($hookNode->textContent) : '';
             $newsItems[] = [
-            'title'       => $title,
-            'link'        => $link,
-            'time'        => $time,
-            'fullContent' => $fullContent,
-            'thumbnail'   => $thumbnail,
+                'title'       => $title,
+                'link'        => $link,
+                'time'        => $time,
+                'thumbnail'   => $thumbnail,
+                'excerpt' => $postexcerpt,
             ];
         }
         return $newsItems;
     }
-    
 }
 
 // Example usage:
 $scraper = new AnimeNewsScraper();
 $news = $scraper->scrapeNews();
 
-dd($news);die;
-?>
+// Include WordPress functions
+require_once('../wp-load.php');
+
+// Insert news items into WordPress posts
+foreach ($news as $item) {
+    // Prepare post data
+    $post_data = [
+        'post_title'    => $item['title'],
+        'post_status'   => 'draft',
+        'post_author'   => 1, // Change to the desired author ID
+        'post_category' => [get_cat_ID('news')], // Ensure 'news' category exists
+        'post_excerpt'  => $item['excerpt'],
+    ];
+    // Check if a post with the same title already exists
+    $existing_post = get_posts([
+        'title'        => $item['title'],
+        'post_type'    => 'post',
+        'post_status'  => 'any',
+        'numberposts'  => 1,
+    ]);
+    $existing_post = !empty($existing_post) ? $existing_post[0] : null;
+    if ($existing_post) {
+        // Skip this item if a post with the same title already exists
+        continue;
+    }
+    // Insert the post into the database
+    $post_id = wp_insert_post($post_data);
+
+    // Set post thumbnail if available
+    if ($item['thumbnail']) {
+        // Download the image
+        $image_url = $item['thumbnail'];
+        $upload_dir = wp_upload_dir();
+        $image_data = file_get_contents($image_url);
+        $filename = basename($image_url);
+        if (wp_mkdir_p($upload_dir['path'])) {
+            $file = $upload_dir['path'] . '/' . $filename;
+        } else {
+            $file = $upload_dir['basedir'] . '/' . $filename;
+        }
+        file_put_contents($file, $image_data);
+
+        // Check the type of file. We'll use this as the 'post_mime_type'.
+        $wp_filetype = wp_check_filetype($filename, null);
+
+        // Prepare an array of post data for the attachment.
+        $attachment = [
+            'post_mime_type' => $wp_filetype['type'],
+            'post_title'     => sanitize_file_name($filename),
+            'post_content'   => '',
+            'post_status'    => 'inherit'
+        ];
+
+        // Insert the attachment.
+        $attach_id = wp_insert_attachment($attachment, $file, $post_id);
+
+        // Generate the metadata for the attachment, and update the database record.
+        require_once(ABSPATH . 'wp-admin/includes/image.php');
+        $attach_data = wp_generate_attachment_metadata($attach_id, $file);
+        wp_update_attachment_metadata($attach_id, $attach_data);
+
+        // Set the featured image
+        set_post_thumbnail($post_id, $attach_id);
+    }
+}
