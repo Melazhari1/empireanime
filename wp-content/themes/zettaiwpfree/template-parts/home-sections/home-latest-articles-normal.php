@@ -26,7 +26,7 @@
 
 						<div class="slider-articles-wrap">
 							
-							<a href="<?php the_permalink(); ?>">
+							<a href="<?php the_permalink(); ?>" name="<?php the_title(); ?>">
 							
 								<?php if ( has_post_thumbnail() ) {
 										the_post_thumbnail('zettaiwp-img-16-9-small', array('class' => 'img-fluid shadow-sm'));

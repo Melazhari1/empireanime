@@ -14,12 +14,12 @@
 
 					<?php if ( get_field('upload_logo', 'option') ) : ?>
 					<!-- display logo for normal mode -->
-					<img class="logo logow logores" src="<?php echo get_field('upload_logo', 'option'); ?>">
+					<img class="logo logow logores" src="<?php echo get_field('upload_logo', 'option'); ?>" alt="<?php bloginfo('name'); ?>">
 					<?php endif; ?>
 					
 					<?php if ( get_field('upload_responsive_logo', 'option') ) : ?>
 					<!-- display logo responsive for normal mode -->
-					<img class="logo logow hide-logo-res" src="<?php echo get_field('upload_responsive_logo', 'option'); ?>">
+					<img class="logo logow hide-logo-res" src="<?php echo get_field('upload_responsive_logo', 'option'); ?>" alt="<?php bloginfo('name'); ?>">
 					<?php endif; ?>
 
 				</a>
